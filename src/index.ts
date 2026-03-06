@@ -14,6 +14,7 @@ import { Logger } from "./core/logger";
 import { mappingRoutes } from "./core/mappingRoutes";
 import { proxyRoutes } from "./core/proxyRoutes";
 import { animeRoutes } from "./providers/anime/route";
+import { mangaRoutes } from "./providers/manga/route";
 
 validateConfig();
 
@@ -23,9 +24,15 @@ const app = new Elysia({ aot: true })
     credentials: CORS_CREDENTIALS,
   }));
 
-if (OPENAPI_ENABLED) {
-  app.use(openapi());
-}
+app.use(openapi({
+  path: '/swagger', //Todo : Snozxyx (Fix : Make this /docs and add a redirect from /docs to /swagger)
+  documentation: {
+    info: { 
+      title:  'Mangaball API Documentation',
+      version: '1.0.0',
+    }
+  }
+}));
 
 app
   .get("/", () => {
@@ -39,9 +46,9 @@ app
     };
   })
   .use(animeRoutes)
+  .use(mangaRoutes)
   .use(proxyRoutes)
-  .use(mappingRoutes)
-  .use(proxyRoutes)
+  .use(mappingRoutes);
 
 app.listen(PORT);
 

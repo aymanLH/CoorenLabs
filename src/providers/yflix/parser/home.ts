@@ -25,10 +25,6 @@ export function extractHomeData(html: string): HomeData {
     const featured: ContentFeatured[] = [];
     const top10: ContentTop10Card[] = [];
     const sliders: Slider[] = [];
-    let recommended: {
-        movies?: MovieCard[],
-        tvs?: TvCard[]
-    } = {}
 
     $("main section#featured .swiper-slide").each((_, node) => {
         const url = $(node).find("a.watch-btn").attr("href");
@@ -42,8 +38,8 @@ export function extractHomeData(html: string): HomeData {
 
         if (!id || !title) return;
 
-        let imdbRate, quality, rating, runtime, year, genres: Genre[] = [];
-
+        let imdbRate, quality, rating, runtime, year;
+        const genres: Genre[] = []
 
         $(node).find("div.metadata span").each((_, node) => {
             const span = $(node)

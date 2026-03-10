@@ -1,8 +1,8 @@
-import Elysia from "elysia";
+import Elysia, { t } from "elysia";
 import { yFlix } from "./yflix";
 
 const yFlixRoutes = new Elysia({ prefix: "/yflix" })
-  .get("/",  () => {
+  .get("/", () => {
     return {
       provider: "yflix",
       type: "movie/tv",
@@ -16,10 +16,23 @@ const yFlixRoutes = new Elysia({ prefix: "/yflix" })
     const response = await yFlix.home();
     return response;
   })
-  .get("/search/:query", async ({ params: { query } }) => {
-    const response = await yFlix.search(query);
+  .get("/search", async ({ query: { query, type, page } }) => {
+    const pageNo = page ? +page : 1;
+    console.log(type);
+    const response = await yFlix.search(query, pageNo, type);
     return response;
-  });
+  },
+    {
+      query: t.Object({
+        query: t.String(),
+        page: t.Optional(t.Numeric()),
+        type: t.Optional(t.Union([
+          t.Literal("movie"),
+          t.Literal("tv")
+        ]))
+      })
+    }
+  );
 
 export { yFlixRoutes };
 

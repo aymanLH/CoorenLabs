@@ -1,6 +1,7 @@
 import { yflix } from "../origins";
 import { fetcher } from "./lib/fetcher";
 import { extractHomeData } from "./parser/home";
+import { extractSearchData } from "./parser/search";
 
 export class yFlix {
   static async home() {
@@ -12,7 +13,35 @@ export class yFlix {
     return extractHomeData(data.text);
   }
 
-  static async search(_query: string) {
-    return "GARBAGE";
+  static async search(_query: string, page: number = 1, type: string = null) {
+    const query = _query.replaceAll(" ", "+");
+
+    const url = yflix +
+      "/browser?keyword=" + encodeURIComponent(query)
+      + (page > 1 ? "&page=" + page : "")
+      + (type ? "&type%5B%5D=" + type : "")
+
+    const data = await fetcher(url, true);
+
+    if (data && data.success) {
+      const { success, status, text } = data;
+
+      const searchResults = extractSearchData(text);
+      // console.log(searchResults);
+      return {
+        success: true,
+        query: query.replaceAll("+", " "),
+        page,
+        type: type ? type : "all",
+        data: searchResults
+      };
+
+    } else {
+      return {
+        success: false,
+        query: query.replaceAll("+", " "),
+        page
+      };
+    }
   }
 }

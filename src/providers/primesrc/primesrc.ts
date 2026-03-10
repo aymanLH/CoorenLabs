@@ -58,9 +58,7 @@ export class Primesrc {
                 return;
             }
 
-            const serverSources: ServerSource[] = []
-
-
+            const serverSources: ServerSource[] = [];
             const supportedServers = ["PrimeVid", "Streamtape"]  //TODO implement other servers
             const serversExtractors = {
                 "PrimeVid": extractPrimevid,

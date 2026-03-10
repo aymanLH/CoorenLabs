@@ -53,6 +53,7 @@ export async function getCloudflareClearance(targetUrl: string): Promise<Clearan
     
     // 3. Extract the cookie and TTL
     const extractionData = await new Promise<{ cookies: any[], cfClearance: string, userAgent: string, ttl: number }>((resolve, reject) => {
+      // eslint-disable-next-line prefer-const
       let checkInterval: NodeJS.Timeout;
       
       const timeoutId = setTimeout(() => {

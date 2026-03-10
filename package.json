@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "bun run --hot  src/index.ts",
     "start": "node index.js",
     "build:node": "tsc --project tsconfig.json --outDir dist",
     "build:bun": "bun build src/index.ts --outdir dist --minify --sourcemap",

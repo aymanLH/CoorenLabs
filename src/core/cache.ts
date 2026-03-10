@@ -71,13 +71,18 @@ export class Cache {
                 await redis.set(key, value);
             } else {
                 // store for TTL seconds
-                await redis.set(key, value, { ex: TTL });
+                if (CACHE_PROVIDER === "default") {
+                    await (redis as RedisClient).set(key, value, "EX", TTL);
+                } else {
+                    await redis.set(key, value, { ex: TTL });
+                }
             }
 
             Logger.info(`[Cache] successfully saved cache, key:${key}, ttl:${TTL == -1 ? "forever" : TTL + "seconds"} `)
             return true;
-        } catch {
+        } catch (err) {
             Logger.error(`[Cache] failed to saved cache, key:${key}, ttl:${TTL == -1 ? "forever" : TTL + "seconds"} `)
+            console.log(err);
             return false;
         }
     }

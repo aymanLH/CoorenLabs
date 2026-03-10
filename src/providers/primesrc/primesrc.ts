@@ -1,5 +1,5 @@
 // maintainer - @binrot
-// currently supports only `Primevid` Server, 
+// currently supports `Primevid` and `Streamtape` Server, 
 //TODO add other server extractors
 
 import { Cache } from "../../core/cache";
@@ -58,9 +58,7 @@ export class Primesrc {
                 return;
             }
 
-            const serverSources: ServerSource[] = []
-
-
+            const serverSources: ServerSource[] = [];
             const supportedServers = ["PrimeVid", "Streamtape"]  //TODO implement other servers
             const serversExtractors = {
                 "PrimeVid": extractPrimevid,

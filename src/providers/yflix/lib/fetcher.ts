@@ -1,17 +1,40 @@
+import { Cache } from "../../../core/cache";
 import { Logger } from "../../../core/logger";
 import { cf_capcha_status, cf_signatures, getCloudflareClearance } from "./cf-bypass";
 
 
 type FetchResponse = {
+  success: boolean,
   status: number,
   text: string
 } | undefined
+
+export type CfBypassCreds = {
+  clearnaceCookieString: string, userAgent: string
+}
+
+const CF_COOKIE_TTL = 2 * 3600; // 2hr
 
 const CF_BYPASS_MAX_TRY = 3;
 
 export const fetcher = async (input: string, detectCfCapcha: boolean, init: RequestInit = {}): Promise<FetchResponse> => {
   // for flexibility, we can do
   try {
+
+    if (detectCfCapcha) {
+      const cfCreds: CfBypassCreds = JSON.parse(await Cache.get("yflix:cf-capcha:creds"));
+
+      if (cfCreds) {
+        const { clearnaceCookieString, userAgent } = cfCreds;
+
+        init = init || {};
+        init.headers = init.headers || {};
+
+        init.headers["cookie"] = init.headers["cookie"] ? clearnaceCookieString + ";" + init.headers["cookie"] : clearnaceCookieString;
+        init.headers["user-agent"] = userAgent;
+      }
+    }
+
     const res = await fetch(input, init);
     const status = res.status;
 
@@ -20,7 +43,10 @@ export const fetcher = async (input: string, detectCfCapcha: boolean, init: Requ
 
       if (detectCfCapcha && cf_capcha_status.includes(status)) {
         const text = await res.text();
-        if (!cf_signatures.some(sig => text.includes(sig))) return; // return if doesnt match to any cf capcha signatures
+        if (!cf_signatures.some(sig => text.includes(sig))) {
+          Logger.info("CF capcha not detected!")
+          return;
+        }  // return if doesnt match to any cf capcha signatures
 
         Logger.info("[yFlix] Detected CF Capcha");
 
@@ -31,10 +57,15 @@ export const fetcher = async (input: string, detectCfCapcha: boolean, init: Requ
 
           if (success) {
             Logger.success("[yFlix] Successfully bypassed CF capcha");
-            console.log(cfClearance, userAgent);
+
+            const cookieCf = `cf_clearance=${cfClearance};`;
+
+            const cfCredsToCache = JSON.stringify({ clearnaceCookieString: cookieCf, userAgent })
+            console.log(cfCredsToCache)
+            Cache.set("yflix:cf-capcha:creds", cfCredsToCache, CF_COOKIE_TTL); // dont await for non-blocking
 
             const headers = {
-              "Cookie": `cf_clearance=${cfClearance};` || "",
+              "Cookie": cfClearance ? cookieCf : "",
               "User-Agent": userAgent || ""
             }
 
@@ -51,13 +82,13 @@ export const fetcher = async (input: string, detectCfCapcha: boolean, init: Requ
         Logger.error(`[yFlix] Failed to  Bypass CF Capcha - returning`);
 
       }
-
     }
+
     const text = await res.text();
 
-    return { status, text };
+    return { success: true, status, text };
 
   } catch (err: unknown) {
-    Logger.error("[yFlix] Error occured while fetching url:", input);
+    Logger.error("[yFlix] Error occured while fetching url:", input, err);
   }
 };

@@ -1,16 +1,18 @@
 import { Elysia } from "elysia";
 import { primesrcRoutes } from "./primesrc/route";
 import { yFlixRoutes } from "./yflix/route";
+import { himoviesRoutes } from "./himovies/route";
 
 export const movieTvRoutes = new Elysia({ prefix: "/movie-tv" })
   .use(primesrcRoutes)
   .use(yFlixRoutes)
+  .use(himoviesRoutes)
   
   // ─── Overview Endpoint ────────────────────────────────────────────────────────
   .get("/", () => ({
     service: "movie-tv",
     description: "Unified Movie & TV API — provider-isolated route architecture",
-    providers: ["primesrc", "yflix"],
+    providers: ["primesrc", "yflix", "himovies"],
     endpoints: {
       primesrc: [
         "GET /movie-tv/primesrc/movie/:tmdbid   → Get movie sources",
@@ -19,6 +21,20 @@ export const movieTvRoutes = new Elysia({ prefix: "/movie-tv" })
       yflix: [
         "GET /movie-tv/yflix/home                → Featured content",
         "GET /movie-tv/yflix/search?query=...     → Search content"
+      ],
+      himovies: [
+        "GET /movie-tv/himovies/home                → Featured content",
+        "GET /movie-tv/himovies/media/search?q=...  → Search media",
+        "GET /movie-tv/himovies/media/suggestions?q=... → Search suggestions (autocomplete)",
+        "GET /movie-tv/himovies/movies/category/:category → Movies (popular, top-rated)",
+        "GET /movie-tv/himovies/tv/category/:category → TV Shows (popular, top-rated)",
+        "GET /movie-tv/himovies/media/upcoming      → Upcoming content",
+        "GET /movie-tv/himovies/media/filter        → Advanced filter search",
+        "GET /movie-tv/himovies/media/:id           → Media info & episodes",
+        "GET /movie-tv/himovies/genres/:genre       → Media by genre",
+        "GET /movie-tv/himovies/countries/:country → Media by country",
+        "GET /movie-tv/himovies/media/:id/servers   → Available servers for episode",
+        "GET /movie-tv/himovies/sources/:episodeId  → Stream sources and subtitles"
       ]
     }
   }), {

@@ -4,8 +4,8 @@ export const toonstream = "https://toonstream.dad";
 
 export const flixhq = "https://flixhq.to";
 export const yflix = "https://yflix.to";
+export const himovies = "https://himovies.sx";
 export const primesrc = "https://primesrc.me";
-
 export const primevid = "https://primevid.click";
 export const streamtape = "https://streamta.site";
 export const doodstream = "https://myvidplay.com";

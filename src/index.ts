@@ -2,11 +2,11 @@ import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import {
-    CORS_CREDENTIALS,
-    CORS_ORIGIN,
-    OPENAPI_VERSION,
-    PORT,
-    validateConfig
+  CORS_CREDENTIALS,
+  CORS_ORIGIN,
+  OPENAPI_VERSION,
+  PORT,
+  validateConfig
 } from "./core/config";
 import { Logger } from "./core/logger";
 import { mappingRoutes } from "./core/mappingRoutes";
@@ -15,6 +15,7 @@ import { animeRoutes } from "./providers/anime/route";
 import { mangaRoutes } from "./providers/manga/route";
 import { movieTvRoutes } from "./providers/movie-tv/route";
 import { musicRoutes } from "./providers/music/route";
+import { streamRoutes } from "./providers/stream/route";
 
 
 validateConfig();
@@ -44,9 +45,10 @@ app.use(openapi({
     },
     tags: [
       { name: 'anime', description: '📺 Anime Providers & Mappings' },
-      { name: 'manga', description: '📚 Manga Providers (e.g., Mangaball)' },
+      { name: 'manga', description: '📚 Manga Providers (e.g., Mangaball, Atsu)' },
       { name: 'movie', description: '🍿 Movie & TV Providers' },
-      { name: 'proxy', description: '⚡ Utilities' }
+      { name: 'stream', description: '⚡ Direct Stream Providers (e.g., Peachify)' }, // <-- Added Stream Tag
+      { name: 'proxy', description: '🥷 Utilities' }
     ]
   }
 }));
@@ -71,10 +73,9 @@ app
   .use(animeRoutes)
   .use(mangaRoutes)
   .use(musicRoutes)
+  .use(streamRoutes)
   .use(proxyRoutes)
   .use(mappingRoutes)
-
-
 
 app.listen(PORT);
 

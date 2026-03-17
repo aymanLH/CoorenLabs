@@ -33,6 +33,7 @@
     "axios-cookiejar-support": "^6.0.5",
     "cheerio": "^1.2.0",
     "elysia": "^1.4.27",
+    "puppeteer": "^24.39.1",
     "puppeteer-real-browser": "^1.4.4",
     "string-similarity": "^4.0.4",
     "tmdb-ts": "^2.3.0",

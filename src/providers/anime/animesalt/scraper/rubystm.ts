@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
-import { embedPlayerOrigins, ANIME_SALT_BASE, UserAgent } from "../../lib/constants";
-import { DirectSource } from "../../lib/types";
+import { embedPlayerOrigins, ANIME_SALT_BASE, UserAgent } from "../constants";
+import { DirectSource } from "../types";
 
 const { rubyStreamOrigin } = embedPlayerOrigins;
 

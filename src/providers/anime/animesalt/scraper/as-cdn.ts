@@ -1,6 +1,6 @@
-import { embedPlayerOrigins, UserAgent } from "../../lib/constants";
-import { proxifyUrl } from "../../lib/proxy";
-import { DirectSource } from "../../lib/types";
+import { embedPlayerOrigins, UserAgent } from "../constants";
+import { proxifyUrl } from "../lib/proxy";
+import { DirectSource } from "../types";
 
 const { asCdnOrigin } = embedPlayerOrigins;
 

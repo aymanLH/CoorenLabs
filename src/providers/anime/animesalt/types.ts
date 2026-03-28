@@ -117,5 +117,3 @@ export interface SeriesInfoResponse extends TResponse {
         seasons: Season[];
     }
 }
-
-

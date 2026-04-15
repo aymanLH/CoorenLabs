@@ -1,0 +1,99 @@
+the watch stream url for mega up is slow it keeps loading im not sure if its gonna work after using the m3u8 inside my website or its gonna be the same. other than that i didn't understand other results
+
+5:14 PM
+Looking at your output, here's what everything means:
+
+✅ AnimeKai — Fully Working
+
+The watch response is actually complete now. Each server entry has:
+
+iframe — the embed URL (what a browser would load)
+sources[].url — the actual .m3u8 stream URL (what your video player needs)
+subtitles — caption/thumbnail VTT files
+intro/outro — timestamps in seconds for skip buttons
+The script picked iframe as the "stream URL" (findStreamUrl grabbed the first https:// it found), but the real thing you want is sources[0].url — the .m3u8 file. That's what you should feed your video player.
+
+About the speed — MegaUp being slow is a MegaUp problem, not your code. The .m3u8 URL will behave the same in your website as it does here. If it's slow now, it'll be slow there too. You might want to let the user pick a server (Server 1 vs Server 2 — they use different CDN hostnames so speed can differ).
+
+❌ FlixHQ — One remaining issue
+
+The info endpoint is failing. The server returned null for episodes when hitting /movie-tv/flixhq/movie-watch-inception-19764. The response body is probably the movie metadata but episodes are stored differently. Here's the fix — update the testFlixHQ info section to try a few shapes:
+
+
+Edited 2 files, ran 2 commands, read a file
+Edited 2 files, ran 2 commands, read a file
+Run this and paste the output. The key thing it'll now print is Raw info keys: ... — that'll show us exactly what the FlixHQ info endpoint returns for a movie, and from there the episodeId fix becomes obvious.
+
+Quick summary of what to use in your app:
+
+What	Key to use
+Video stream	results[i].sources[0].url (the .m3u8)
+Subtitles	results[i].subtitles filtered by type: "soft" and lang
+Skip intro	intro[0] → intro[1] seconds
+Skip outro	outro[0] → outro[1] seconds
+Server picker	Loop over results[], show name to user
+
+Test streaming
+JS 
+
+CoorenLabs.zip
+zip
+
+
+C:\Users\aymeen\personal_projects\cooren-deploy> node test-streaming.js ╔══════════════════════════════════════════╗ ║ Cooren — Streaming Pipeline Test ║ ╚══════════════════════════════════════════╝ Base: http://usa.heavencloud.in:2452 🎬 FlixHQ — Streaming Pipeline ────────
+
+pasted
+
+can i now use cooren labs api that i already deployed to heaven cloud cuz i really want a reliable source that has all movies and series and anime for both watching and browsing
+
+5:17 PM
+Let me look at your project first to understand what's already built.
+
+
+Ran 10 commands
+Ran 10 commands
+Now I have the full picture. Let me check the route prefix and fix the test script:
+
+
+Check how routes are mounted
+Check how routes are mounted
+Now I have everything I need. Here's the complete picture:
+
+The FlixHQ info endpoint is /movie-tv/flixhq/media/:id not /movie-tv/flixhq/:id — and the response key is providerEpisodes, not episodes. The test script had both wrong. Let me fix the script properly and also make it comprehensive for all your
+
+Claude's response was interrupted
+
+container@miami1~ Server marked as starting... [Heavencloud Daemon]: Pulling Docker container image, this could take a few minutes to complete... [Heavencloud Daemon]: Finished pulling Docker container image 1.3.11 :/home/container$ if [[ -d .git ]] && [[ ${AUTO_UPDATE} == "1" ]]; then git pull;
+
+pasted
+
+maybe do you need to see server logs i hope they help
+
+5:19 PM
+Yes, these logs are very revealing. Here's the full diagnosis:
+
+✅ Working fine:
+
+FlixHQ (movies/TV browsing and streaming)
+AnimeKai (anime streaming)
+HiMovies
+YFlix
+❌ Broken — and why:
+
+PrimeSrc — needs Chrome/Puppeteer to bypass Cloudflare. Your HeavenCloud container doesn't have xvfb or Chrome installed. This provider is dead on this host unless you install them or switch to a headless-free bypass.
+
+Vidcore & Vidfast — same exact problem. Both need a real Chrome browser to extract streams. No Chrome = no streams.
+
+Toonstream — toonstream.dad is simply down or blocking your server's IP. The domain is returning an error. Nothing you can do about that server-side.
+
+Tidal — the /pages/charts and /pages/new endpoints are returning 404 from Tidal's API itself, meaning Tidal changed their API structure.
+
+What you should actually do:
+
+The providers that work without Chrome (FlixHQ, HiMovies, AnimeKai, YFlix) are your reliable ones. For your website, I'd recommend just building around those and ignoring the broken ones for now. The FlixHQ info endpoint issue from before is still the one thing worth fixing — let me do that now:
+
+
+Viewed 2 files, ran a command, edited a file
+Viewed 2 files, ran a command, edited a file
+Claude's response was interrupted
+continue

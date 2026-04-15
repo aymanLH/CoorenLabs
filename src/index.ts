@@ -11,7 +11,7 @@ if (isDeno) {
   // @ts-expect-error - Deno global
   Deno.serve({ port: PORT }, app.fetch);
 } else {
-  app.listen(PORT);
+  app.listen({ port: PORT, hostname: "0.0.0.0" });
 }
 
 Logger.info(`Started at http://localhost:${PORT}`);

@@ -657,6 +657,94 @@ static async fetchEpisodeServers(
     }
   }
 
+  // ─── Homepage (trending cards + latest episodes) ──────────────────────────
+
+  static async home(): Promise<{ trending: AnimeKaiSearchItem[]; latestEpisodes: any[] }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/home`, { headers: this.headers() });
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      // ── Trending cards ──────────────────────────────────────────────────────
+      // Try all plausible section selectors for the trending block on the homepage
+      const trending: AnimeKaiSearchItem[] = [];
+      const trendingSelectors = [
+        "section.trending-section .aitem",
+        "section.section-anime .aitem",
+        "div.trending .aitem",
+        "section.home-trending .aitem",
+        "div.home-section .aitem",
+        ".section-trending .aitem",
+      ];
+      for (const sel of trendingSelectors) {
+        if (trending.length >= 12) break;
+        $(sel).each((_, ele) => {
+          if (trending.length >= 12) return;
+          const card = $(ele);
+          const atag = card.find("div.inner > a").first();
+          const href = atag.attr("href") || "";
+          const id = href.replace("/watch/", "").replace(/^\//, "");
+          if (!id || trending.some(t => t.id === id)) return;
+          trending.push({
+            id,
+            title: atag.text().trim() || card.find(".title").text().trim(),
+            url: `${this.baseUrl}/watch/${id}`,
+            image: card.find("img").attr("data-src") || card.find("img").attr("src"),
+            japaneseTitle: card.find(".title").attr("data-jp")?.trim(),
+            type: card.find(".info").children().last().text().trim(),
+            sub: parseInt(card.find(".info span.sub").text()) || 0,
+            dub: parseInt(card.find(".info span.dub").text()) || 0,
+            episodes: parseInt(card.find(".info").children().eq(-2).text().trim()) || 0,
+          });
+        });
+      }
+
+      // ── Latest episodes ─────────────────────────────────────────────────────
+      // The homepage has a Latest Episodes section with episode numbers on cards
+      const latestEpisodes: any[] = [];
+      const epSelectors = [
+        "section.latest-episodes .aitem",
+        "div.latest-episodes .aitem",
+        "section.episode-section .aitem",
+        ".section-episodes .aitem",
+        "div.ep-list .aitem",
+        "div.episode-list .aitem",
+      ];
+      for (const sel of epSelectors) {
+        if (latestEpisodes.length >= 24) break;
+        $(sel).each((_, ele) => {
+          if (latestEpisodes.length >= 24) return;
+          const card = $(ele);
+          const atag = card.find("div.inner > a").first();
+          const href = atag.attr("href") || "";
+          const id = href.replace("/watch/", "").replace(/^\//, "").split("?")[0];
+          if (!id || latestEpisodes.some(e => e.id === id)) return;
+          const epText =
+            card.find(".ep-badge").text().trim() ||
+            card.find(".episode-number").text().trim() ||
+            card.find(".info span").first().text().trim();
+          const epNum = parseInt(epText.replace(/[^0-9]/g, "")) || null;
+          latestEpisodes.push({
+            id,
+            title: atag.text().trim() || card.find(".title").text().trim(),
+            url: `${this.baseUrl}/watch/${id}`,
+            image: card.find("img").attr("data-src") || card.find("img").attr("src"),
+            japaneseTitle: card.find(".title").attr("data-jp")?.trim(),
+            type: card.find(".info").children().last().text().trim(),
+            episodeNo: epNum,
+            sub: parseInt(card.find(".info span.sub").text()) || 0,
+            dub: parseInt(card.find(".info span.dub").text()) || 0,
+          });
+        });
+      }
+
+      return { trending, latestEpisodes };
+    } catch (err) {
+      Logger.error(`AnimeKai home error: ${String(err)}`);
+      return { trending: [], latestEpisodes: [] };
+    }
+  }
+
   static async getMappingsAndName(
     id: string,
   ): Promise<{ mappings: any | null; name: string } | null> {

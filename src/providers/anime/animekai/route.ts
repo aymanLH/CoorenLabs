@@ -3,6 +3,11 @@ import { AnimeKai } from "./animekai";
 
 export const animekaiRoutes = new Elysia({ prefix: "/animekai" })
 
+  // ─── Homepage (trending + latest episodes) ─────────────────────────────────
+  .get("/home", async () => {
+    return await AnimeKai.home();
+  })
+
   // ─── Search ────────────────────────────────────────────────────────────────
   .get("/search/:query", async ({ params: { query }, query: qs }) => {
     const page = parseInt(qs?.page as string) || 1;

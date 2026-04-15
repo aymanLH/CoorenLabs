@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Bun dependencies
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy source code
 COPY . .

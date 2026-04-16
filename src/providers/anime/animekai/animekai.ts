@@ -591,35 +591,47 @@ static async fetchEpisodeServers(
           if (!lid || seen.has(lid)) continue;
           seen.add(lid);
 
-          const viewToken = await MegaUp.generateToken(lid);
-          const viewData = await (await fetch(`${this.baseUrl}/ajax/links/view?id=${lid}&_=${viewToken}`, { headers: this.headers() })).json();
+          try {
+            const viewToken = await MegaUp.generateToken(lid);
+            const viewData = await (await fetch(`${this.baseUrl}/ajax/links/view?id=${lid}&_=${viewToken}`, { headers: this.headers() })).json();
 
-          const decoded = await MegaUp.decodeIframeData(viewData.result);
-          const videoSources = await MegaUp.extract(decoded.url);
+            const decoded = await MegaUp.decodeIframeData(viewData.result);
 
-          // Set skip times from the first parsed server
-          if (!globalIntro && !globalOutro) {
-            globalIntro = decoded.skip.intro;
-            globalOutro = decoded.skip.outro;
+            // Set skip times from the first parsed server
+            if (!globalIntro && !globalOutro) {
+              globalIntro = decoded.skip.intro;
+              globalOutro = decoded.skip.outro;
+            }
+
+            const suffix = group.label === "hardsub" ? " (HardSub)" 
+                         : group.label === "softsub" ? " (SoftSub)" 
+                         : group.label === "dub" ? " (Dub)" 
+                         : "";
+
+            // Try to extract direct video sources, but don't fail if extraction errors
+            let videoSources: any = { sources: [], subtitles: [], download: null };
+            try {
+              videoSources = await MegaUp.extract(decoded.url);
+            } catch (extractErr: any) {
+              Logger.error(`AnimeKai MegaUp.extract failed for ${decoded.url}: ${extractErr?.message}`);
+            }
+
+            const formattedSubtitles = (videoSources.subtitles || []).map((sub: any) => ({
+              ...sub,
+              type: group.subType || "none"
+            }));
+
+            results.push({
+              name: `MegaUp ${$(item).text().trim()}${suffix}`,
+              iframe: decoded.url,
+              sources: videoSources.sources || [],
+              subtitles: formattedSubtitles,
+              download: videoSources.download
+            });
+          } catch (serverErr: any) {
+            Logger.error(`AnimeKai server lid=${lid} failed: ${serverErr?.message}`);
+            // Continue to next server instead of aborting everything
           }
-
-          const formattedSubtitles = (videoSources.subtitles || []).map((sub: any) => ({
-            ...sub,
-            type: group.subType || "none"
-          }));
-
-          const suffix = group.label === "hardsub" ? " (HardSub)" 
-                       : group.label === "softsub" ? " (SoftSub)" 
-                       : group.label === "dub" ? " (Dub)" 
-                       : "";
-
-          results.push({
-            name: `MegaUp ${$(item).text().trim()}${suffix}`,
-            iframe: decoded.url,
-            sources: videoSources.sources,
-            subtitles: formattedSubtitles,
-            download: videoSources.download
-          });
         }
       }
 

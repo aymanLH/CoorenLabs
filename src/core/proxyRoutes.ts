@@ -248,6 +248,9 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
       }
 
       corsHeaders["Connection"] = "keep-alive";
+      if (!corsHeaders["User-Agent"] && !corsHeaders["user-agent"]) {
+        corsHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+      }
 
       try {
         const res = await fetch(url, {
@@ -339,6 +342,9 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
 
       // Force keep-alive for the upstream connection
       corsHeaders["Connection"] = "keep-alive";
+      if (!corsHeaders["User-Agent"] && !corsHeaders["user-agent"]) {
+        corsHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+      }
 
       try {
         const res = await fetch(url, {
@@ -400,6 +406,9 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
       }
 
       corsHeaders["Connection"] = "keep-alive";
+      if (!corsHeaders["User-Agent"] && !corsHeaders["user-agent"]) {
+        corsHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+      }
 
       try {
         const res = await fetch(url, {

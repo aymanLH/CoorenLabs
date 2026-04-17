@@ -1,7 +1,13 @@
 import { Elysia } from "elysia";
 import { AnimeKai } from "./animekai";
+import { buildHomepage } from "./homepage";
 
 export const animekaiRoutes = new Elysia({ prefix: "/animekai" })
+
+  // ─── Full Homepage (AniList + AnimeKai, server-side cached) ─────────────────
+  .get("/homepage", async () => {
+    return await buildHomepage();
+  })
 
   // ─── Homepage (trending + latest episodes) ─────────────────────────────────
   .get("/home", async () => {

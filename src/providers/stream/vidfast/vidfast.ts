@@ -1,5 +1,6 @@
 import axios from "axios";
 import { connect } from "puppeteer-real-browser";
+import { STREAM_PROXY_BASE } from "../../../core/config";
 
 const BASE_URL = "https://vidfast.net";
 const SUB_URL = "https://sub.wyzie.io/search";
@@ -209,7 +210,7 @@ export class VidfastParser {
             const encodedUrl = encodeURIComponent(reqUrl);
             const encodedHeaders = encodeURIComponent(JSON.stringify(targetHeaders));
 
-            const proxiedUrl = `/proxy/m3u8-proxy?url=${encodedUrl}&headers=${encodedHeaders}`;
+            const proxiedUrl = `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodedUrl}&headers=${encodedHeaders}`;
 
             collectedSources.push({
               type: "hls",

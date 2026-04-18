@@ -32,6 +32,10 @@ export const REQUEST_TIMEOUT = parseInt(env.REQUEST_TIMEOUT || "60000", 10);
 
 // proxy confs
 export const SERVER_ORIGIN = env.SERVER_ORIGIN;
+export const STREAM_PROXY_BASE = (env.STREAM_PROXY_BASE || (SERVER_ORIGIN ? `${SERVER_ORIGIN}/proxy` : "")).replace(
+  /\/+$/,
+  "",
+);
 
 export const SHOW_PROXIED_URL = env.SHOW_PROXIED_URL == "true";
 

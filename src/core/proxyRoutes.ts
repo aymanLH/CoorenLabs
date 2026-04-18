@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { SERVER_ORIGIN } from "./config";
+import { SERVER_ORIGIN, STREAM_PROXY_BASE } from "./config";
 import { isTooLarge } from "./helper";
 import { Logger } from "./logger";
 
@@ -14,6 +14,20 @@ const PLAYLIST_REGEX = /\.m3u|playlist|\.txt/i;
 import { env } from "./runtime";
 
 if (!SERVER_ORIGIN && env.NODE_ENV !== "test") throw new Error("set SERVER_ORIGIN at .env!");
+
+const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/** Enrich proxy headers so CDNs treat the request as a real browser. */
+function enrichProxyHeaders(h: Record<string, string>): Record<string, string> {
+  h["Connection"] = "keep-alive";
+  if (!h["User-Agent"] && !h["user-agent"]) h["User-Agent"] = DEFAULT_USER_AGENT;
+  if (!h["Accept"] && !h["accept"]) {
+    h["Accept"] = "*/*";
+  }
+  return h;
+}
+
 
 const ANILIST_HOST = "graphql.anilist.co";
 const ANILIST_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
@@ -247,7 +261,7 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
         }
       }
 
-      corsHeaders["Connection"] = "keep-alive";
+      enrichProxyHeaders(corsHeaders);
 
       try {
         const res = await fetch(url, {
@@ -281,9 +295,9 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
                 const encodedUrl = encodeURIComponent(absoluteUrl);
 
                 if (PLAYLIST_REGEX.test(absoluteUrl)) {
-                  proxiedUrl = `${SERVER_ORIGIN}/proxy/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+                  proxiedUrl = `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
                 } else {
-                  proxiedUrl = `${SERVER_ORIGIN}/proxy/fetch?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+                  proxiedUrl = `${STREAM_PROXY_BASE}/fetch?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
                 }
 
                 return `URI="${proxiedUrl}"`;
@@ -294,9 +308,9 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
             const encodedUrl = encodeURIComponent(absoluteUrl);
 
             if (PLAYLIST_REGEX.test(absoluteUrl)) {
-              return `${SERVER_ORIGIN}/proxy/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+              return `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
             } else {
-              return `${SERVER_ORIGIN}/proxy/ts-segment?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+              return `${STREAM_PROXY_BASE}/ts-segment?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
             }
           })
           .join("\n");
@@ -337,8 +351,7 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
         }
       }
 
-      // Force keep-alive for the upstream connection
-      corsHeaders["Connection"] = "keep-alive";
+      enrichProxyHeaders(corsHeaders);
 
       try {
         const res = await fetch(url, {
@@ -399,7 +412,7 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
         corsHeaders["Range"] = clientRange;
       }
 
-      corsHeaders["Connection"] = "keep-alive";
+      enrichProxyHeaders(corsHeaders);
 
       try {
         const res = await fetch(url, {

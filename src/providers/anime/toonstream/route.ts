@@ -19,6 +19,10 @@ const SERIES_INFO_CACHE_TTL = 3600 * 24 * 3; // 3 days
 import { env } from "../../../core/runtime";
 
 export const SERVER_ORIGIN = env.SERVER_ORIGIN || "";
+export const STREAM_PROXY_BASE = (env.STREAM_PROXY_BASE || (SERVER_ORIGIN ? `${SERVER_ORIGIN}/proxy` : "")).replace(
+  /\/+$/,
+  "",
+);
 export const PROXIFY = Boolean(env.PROXIFY) || false;
 
 if (!SERVER_ORIGIN && env.NODE_ENV !== "test") throw new Error("set SERVER_ORIGIN at .env!");
@@ -41,29 +45,27 @@ const MAX_MP4_SIZE = 20 * 1024 * 1024 * 1024; // 20 GB
 const PLAYLIST_REGEX =
   /\.m3u|playlist|\.txt|^(?!.*\.(?:js|css|gif|jpg|png|svg|woff|woff2|ttf|ts|mp4|m4s|aac|key|vtt)(?:[?#].*)?$).*$/i;
 
-const prefix = "/anime/toonstream";
-
 export const toonstreamRoutes = new Elysia({ prefix: "/toonstream" })
   .get("/", () => {
     return {
       name: "toonstream-api",
       version: "0.1",
       endpoints: [
-        prefix + "/home",
-        prefix + "/search/{query}/{page}",
+        "/anime/toonstream/home",
+        "/anime/toonstream/search/{query}/{page}",
         "----------------------",
-        prefix + "/movies/{page}",
-        prefix + "/movies/info/{slug}",
-        prefix + "/movies/sources/{slug}",
+        "/anime/toonstream/movies/{page}",
+        "/anime/toonstream/movies/info/{slug}",
+        "/anime/toonstream/movies/sources/{slug}",
         "----------------------",
-        prefix + "/series/{page}",
-        prefix + "/series/info/{slug}",
-        prefix + "/episode/sources/{slug}",
+        "/anime/toonstream/series/{page}",
+        "/anime/toonstream/series/info/{slug}",
+        "/anime/toonstream/episode/sources/{slug}",
         "----------------------",
-        prefix + "/m3u8-proxy?url={url}&headers={encodedHeaders}",
-        prefix + "/ts-segment?url={url}&headers={encodedHeaders}",
-        prefix + "/fetch?url={url}&headers={encodedHeaders}",
-        prefix + "/mp4-proxy?url={url}&headers=",
+        "/proxy/m3u8-proxy?url={url}&headers={encodedHeaders}",
+        "/proxy/ts-segment?url={url}&headers={encodedHeaders}",
+        "/proxy/fetch?url={url}&headers={encodedHeaders}",
+        "/proxy/mp4-proxy?url={url}&headers=",
       ],
       msg: "use these proxy routes for some toonstream source to work.",
     };
@@ -376,9 +378,9 @@ export const toonstreamRoutes = new Elysia({ prefix: "/toonstream" })
                 const encodedUrl = encodeURIComponent(absoluteUrl);
 
                 if (PLAYLIST_REGEX.test(absoluteUrl)) {
-                  proxiedUrl = `${SERVER_ORIGIN}${prefix}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+                  proxiedUrl = `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
                 } else {
-                  proxiedUrl = `${SERVER_ORIGIN}${prefix}/fetch?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+                  proxiedUrl = `${STREAM_PROXY_BASE}/fetch?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
                 }
 
                 return `URI="${proxiedUrl}"`;
@@ -389,9 +391,9 @@ export const toonstreamRoutes = new Elysia({ prefix: "/toonstream" })
             const encodedUrl = encodeURIComponent(absoluteUrl);
 
             if (PLAYLIST_REGEX.test(absoluteUrl)) {
-              return `${SERVER_ORIGIN}${prefix}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+              return `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
             } else {
-              return `${SERVER_ORIGIN}${prefix}/ts-segment?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
+              return `${STREAM_PROXY_BASE}/ts-segment?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ""}`;
             }
           })
           .join("\n");

@@ -6,6 +6,10 @@ import { Logger } from "../../../core/logger";
 import { env } from "../../../core/runtime";
 
 export const SERVER_ORIGIN = env.SERVER_ORIGIN || "";
+export const STREAM_PROXY_BASE = (env.STREAM_PROXY_BASE || (SERVER_ORIGIN ? `${SERVER_ORIGIN}/proxy` : "")).replace(
+  /\/+$/,
+  "",
+);
 export const PROXIFY = Boolean(env.PROXIFY) || false;
 
 if (!SERVER_ORIGIN && env.NODE_ENV !== "test") throw new Error("set SERVER_ORIGIN at .env!");
@@ -15,21 +19,19 @@ Logger.info("auto source proxy is ", PROXIFY);
 const PLAYLIST_REGEX =
   /\.m3u|playlist|\.txt|^(?!.*\.(?:js|css|gif|jpg|png|svg|woff|woff2|ttf|ts|mp4|m4s|aac|key|vtt)(?:[?#].*)?$).*$/i;
 
-const prefix = "/anime/animesalt";
-
 export const animesaltRoutes = new Elysia({ prefix: "/animesalt" })
 
   .get("/", () => ({
     name: "animesalt-api",
     version: "2.0",
     endpoints: [
-      prefix + "/home",
-      prefix + "/search/{query}/{page}",
-      prefix + "/category/{type}/{page}",
-      prefix + "/movies/{page}",
-      prefix + "/movies/info/{slug}",
-      prefix + "/series/info/{slug}",
-      prefix + "/episode/stream/{slug}",
+      "/anime/animesalt/home",
+      "/anime/animesalt/search/{query}/{page}",
+      "/anime/animesalt/category/{type}/{page}",
+      "/anime/animesalt/movies/{page}",
+      "/anime/animesalt/movies/info/{slug}",
+      "/anime/animesalt/series/info/{slug}",
+      "/anime/animesalt/episode/stream/{slug}",
     ],
   }))
 
@@ -150,9 +152,9 @@ export const animesaltRoutes = new Elysia({ prefix: "/animesalt" })
             const encoded = encodeURIComponent(absolute);
 
             if (PLAYLIST_REGEX.test(absolute)) {
-              return `${SERVER_ORIGIN}${prefix}/m3u8-proxy?url=${encoded}&headers=${encodedHeaders}`;
+              return `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encoded}&headers=${encodedHeaders}`;
             } else {
-              return `${SERVER_ORIGIN}${prefix}/ts-segment?url=${encoded}&headers=${encodedHeaders}`;
+              return `${STREAM_PROXY_BASE}/ts-segment?url=${encoded}&headers=${encodedHeaders}`;
             }
           })
           .join("\n");

@@ -1,7 +1,5 @@
-import { SERVER_ORIGIN } from "../route";
+import { STREAM_PROXY_BASE } from "../route";
 import { DirectSource } from "../types";
-
-const prefix = "/anime/animesalt";
 
 export function proxifySource(source: DirectSource): DirectSource {
   const { type, url, headers } = source;
@@ -11,8 +9,8 @@ export function proxifySource(source: DirectSource): DirectSource {
 
   const finalUrl =
     type == "hls"
-      ? `${SERVER_ORIGIN}${prefix}/m3u8-proxy?url=${encodedUrl}${headerQuery}`
-      : `${SERVER_ORIGIN}${prefix}/mp4-proxy?url=${encodedUrl}${headerQuery}`;
+      ? `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodedUrl}${headerQuery}`
+      : `${STREAM_PROXY_BASE}/mp4-proxy?url=${encodedUrl}${headerQuery}`;
 
   return {
     proxiedUrl: finalUrl,
@@ -28,7 +26,7 @@ export function proxifyUrl(
   const headerParam = headers ? `&headers=${encodeURIComponent(JSON.stringify(headers))}` : "";
   const proxiedUrl =
     type == "hls"
-      ? `${SERVER_ORIGIN}${prefix}/m3u8-proxy?url=${encodeURIComponent(url)}${headerParam}`
+      ? `${STREAM_PROXY_BASE}/m3u8-proxy?url=${encodeURIComponent(url)}${headerParam}`
       : "";
   return proxiedUrl;
 }

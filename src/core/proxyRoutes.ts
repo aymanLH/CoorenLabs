@@ -19,15 +19,22 @@ const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /** Enrich proxy headers so CDNs treat the request as a real browser. */
-function enrichProxyHeaders(h: Record<string, string>): Record<string, string> {
-  h["Connection"] = "keep-alive";
-  if (!h["User-Agent"] && !h["user-agent"]) h["User-Agent"] = DEFAULT_USER_AGENT;
-  if (!h["Accept"] && !h["accept"]) {
-    h["Accept"] = "*/*";
-  }
-  return h;
-}
+function enrichProxyHeaders(headers: Record<string, string>): Record<string, string> {
+  headers["Connection"] = "keep-alive";
+  if (!headers["User-Agent"] && !headers["user-agent"]) headers["User-Agent"] = DEFAULT_USER_AGENT;
 
+  const referer = headers["Referer"] || headers["referer"];
+  if (referer && !headers["Origin"] && !headers["origin"]) {
+    try {
+      headers["Origin"] = new URL(referer).origin;
+    } catch {
+      // Ignore invalid referer values.
+    }
+  }
+
+  if (!headers["Accept"] && !headers["accept"]) headers["Accept"] = "*/*";
+  return headers;
+}
 
 const ANILIST_HOST = "graphql.anilist.co";
 const ANILIST_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h

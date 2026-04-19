@@ -1,12 +1,13 @@
-import axios from "axios";
 import * as cheerio from "cheerio";
+import { createProxiedAxios, withUpstreamProxy } from "../../../core/lib/upstreamProxy";
 
 export async function getClientKey(embedUrl: string, referer: string): Promise<string> {
+  const http = createProxiedAxios();
   const salts: string[] = [];
   const maxAttempts = 10;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await axios.get(embedUrl, {
+      const response = await http.get(embedUrl, {
         headers: {
           Referer: referer,
           "X-Requested-With": "XMLHttpRequest",
@@ -69,6 +70,7 @@ export async function getClientKey(embedUrl: string, referer: string): Promise<s
 
 export class VideoStream {
   private DEFAULT_CHARSET = Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32));
+  private http = createProxiedAxios();
 
   private deriveKey(secret: string, nonce: string): string {
     const input = secret + nonce;
@@ -132,7 +134,7 @@ export class VideoStream {
     const url =
       "https://raw.githubusercontent.com/yogesh-hacker/MegacloudKeys/refs/heads/main/keys.json";
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, withUpstreamProxy());
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -217,7 +219,7 @@ export class VideoStream {
     const sourcesBaseUrl = `${videoUrl.origin}${basePathname}/getSources`;
 
     try {
-      const response = await axios.get(sourcesBaseUrl, {
+      const response = await this.http.get(sourcesBaseUrl, {
         params: {
           id: sourceId,
           _k: clientKey,

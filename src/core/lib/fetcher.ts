@@ -1,6 +1,7 @@
 import { Cache } from "../cache";
 import { Logger } from "../logger";
 import { cf_captcha_status, cf_signatures, getCloudflareClearance } from "./cf-bypass";
+import { withUpstreamProxy } from "./upstreamProxy";
 
 type FetchResponse =
   | {
@@ -45,7 +46,7 @@ export const fetcher = async (
       }
     }
 
-    const res = await fetch(input, init);
+    const res = await fetch(input, withUpstreamProxy(init));
     const status = res.status;
     const text = await res.text();
 

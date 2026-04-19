@@ -1,5 +1,5 @@
-import axios from "axios";
 import * as cheerio from "cheerio";
+import { createProxiedAxios } from "../../../core/lib/upstreamProxy";
 import { VidCloud } from "./extractor";
 import * as parser from "./parser";
 import { flixhq } from "../../origins";
@@ -13,6 +13,7 @@ import {
 export class FlixHQ {
   private static baseUrl = flixhq;
   private static extractor = new VidCloud();
+  private static http = createProxiedAxios();
 
   private static createSlug(text: string): string {
     return text
@@ -45,7 +46,7 @@ export class FlixHQ {
 
   static async fetchHome() {
     try {
-      const response = await axios.get(`${this.baseUrl}/home`);
+      const response = await this.http.get(`${this.baseUrl}/home`);
       return parser.parseHome(cheerio.load(response.data));
     } catch (error: any) {
       return { error: error.message };
@@ -55,7 +56,7 @@ export class FlixHQ {
   static async search(query: string, page: number = 1) {
     if (!query) return { error: "Query is required" };
     try {
-      const response = await axios.get(`${this.baseUrl}/search/${this.createSlug(query)}`, {
+      const response = await this.http.get(`${this.baseUrl}/search/${this.createSlug(query)}`, {
         params: { page },
       });
       return parser.parsePaginatedResults(
@@ -79,7 +80,7 @@ export class FlixHQ {
     const countryId = this.getMappedValue(country, HIMoviesCountryID);
     const url = `${this.baseUrl}/filter?type=${type}&quality=${quality}&release_year=${year}&genre=${genreId}&country=${countryId}&page=${page}`;
     try {
-      const response = await axios.get(url);
+      const response = await this.http.get(url);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -94,7 +95,7 @@ export class FlixHQ {
     const params = new URLSearchParams();
     params.append("keyword", query);
     try {
-      const response = await axios.post(`${this.baseUrl}/ajax/search`, params.toString(), {
+      const response = await this.http.post(`${this.baseUrl}/ajax/search`, params.toString(), {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
           "X-Requested-With": "XMLHttpRequest",
@@ -110,7 +111,7 @@ export class FlixHQ {
 
   static async fetchPopularMovies(page = 1) {
     try {
-      const response = await axios.get(`${this.baseUrl}/movie?page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/movie?page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -122,7 +123,7 @@ export class FlixHQ {
 
   static async fetchPopularTv(page = 1) {
     try {
-      const response = await axios.get(`${this.baseUrl}/tv-show?page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/tv-show?page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -134,7 +135,7 @@ export class FlixHQ {
 
   static async fetchTopMovies(page = 1) {
     try {
-      const response = await axios.get(`${this.baseUrl}/top-imdb?type=movie&page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/top-imdb?type=movie&page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -146,7 +147,7 @@ export class FlixHQ {
 
   static async fetchTopTv(page = 1) {
     try {
-      const response = await axios.get(`${this.baseUrl}/top-imdb?type=tv&page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/top-imdb?type=tv&page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -158,7 +159,7 @@ export class FlixHQ {
 
   static async fetchUpcoming(page = 1) {
     try {
-      const response = await axios.get(`${this.baseUrl}/coming-soon?page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/coming-soon?page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -171,7 +172,7 @@ export class FlixHQ {
   static async fetchGenre(genre: string, page = 1) {
     const value = this.getMappedValue(genre, HIMovieGenres);
     try {
-      const response = await axios.get(`${this.baseUrl}/genre/${value}?page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/genre/${value}?page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -184,7 +185,7 @@ export class FlixHQ {
   static async fetchByCountry(country: string, page = 1) {
     const value = this.getMappedValue(country, HIMovieCountryCode);
     try {
-      const response = await axios.get(`${this.baseUrl}/country/${value}?page=${page}`);
+      const response = await this.http.get(`${this.baseUrl}/country/${value}?page=${page}`);
       return parser.parsePaginatedResults(
         cheerio.load(response.data),
         "div.block_area-content.block_area-list.film_list.film_list-grid div.flw-item",
@@ -198,14 +199,14 @@ export class FlixHQ {
     if (!mediaId) return { error: "mediaId is required" };
     try {
       const mediaPath = mediaId.replace("-", "/");
-      const response = await axios.get(`${this.baseUrl}/${mediaPath}`);
+      const response = await this.http.get(`${this.baseUrl}/${mediaPath}`);
       const { data, recommended } = parser.parseInfo(cheerio.load(response.data));
 
       let episodes: any[] = [];
       const internalId = mediaPath.split("-").at(-1);
 
       if (data.type === "TV") {
-        const seasonsRes = await axios.get(this.buildAjaxUrl(internalId!, "season"), {
+        const seasonsRes = await this.http.get(this.buildAjaxUrl(internalId!, "season"), {
           headers: {
             "X-Requested-With": "XMLHttpRequest",
             Referer: `${this.baseUrl}/${mediaPath}`,
@@ -213,7 +214,7 @@ export class FlixHQ {
         });
         const seasons = parser.parseSeasons(cheerio.load(seasonsRes.data));
         for (const { seasonId, seasonNumber } of seasons) {
-          const epRes = await axios.get(this.buildAjaxUrl(seasonId!, "tv"), {
+          const epRes = await this.http.get(this.buildAjaxUrl(seasonId!, "tv"), {
             headers: {
               "X-Requested-With": "XMLHttpRequest",
               Referer: `${this.baseUrl}/${mediaPath}`,
@@ -244,7 +245,7 @@ export class FlixHQ {
       let servers: any[] = [];
       if (episodeId.includes("movie")) {
         const id = episodeId.split("-").at(-1);
-        const res = await axios.get(this.buildAjaxUrl(id!, "movie-server"), {
+        const res = await this.http.get(this.buildAjaxUrl(id!, "movie-server"), {
           headers: {
             "X-Requested-With": "XMLHttpRequest",
             Referer: `${this.baseUrl}/watch-${episodeId.replace("-", "/")}`,
@@ -254,7 +255,7 @@ export class FlixHQ {
       } else {
         const parts = episodeId.split("-episode-");
         const id = parts.at(1);
-        const res = await axios.get(this.buildAjaxUrl(id!, "tv-server"), {
+        const res = await this.http.get(this.buildAjaxUrl(id!, "tv-server"), {
           headers: {
             "X-Requested-With": "XMLHttpRequest",
             Referer: `${this.baseUrl}/watch-${parts.at(0)?.replace("-", "/")}`,
@@ -296,7 +297,7 @@ export class FlixHQ {
         refererPath = `${this.baseUrl}/${episodeId.split("-episode-").at(0)?.replace("-", "/")}`;
       }
 
-      const embedRes = await axios.get(
+      const embedRes = await this.http.get(
         `${this.baseUrl}/ajax/episode/sources/${selectedServer.serverId}`,
         {
           headers: {

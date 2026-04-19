@@ -4,6 +4,7 @@
 
 import { Cache } from "../../../core/cache";
 import { fetcher } from "../../../core/lib/fetcher";
+import { withUpstreamProxy } from "../../../core/lib/upstreamProxy";
 import { Logger } from "../../../core/logger";
 import { USER_AGENT } from "../../anime/animepahe/scraper";
 import { primesrc as origin } from "../../origins";
@@ -53,7 +54,7 @@ export class Primesrc {
     };
 
     try {
-      const res = await fetch(url, { headers });
+      const res = await fetch(url, withUpstreamProxy({ headers }));
       if (!res.ok) {
         console.log(await res.text());
         Logger.error("[primesrc]", "fetch err: failed to get avaiable servers from api");

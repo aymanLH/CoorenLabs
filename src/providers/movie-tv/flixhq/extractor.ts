@@ -1,9 +1,10 @@
-import axios from "axios";
 import { getClientKey } from "../himovies/extractor";
+import { createProxiedAxios } from "../../../core/lib/upstreamProxy";
 
 export class VidCloud {
   private DefaultCharacterSet = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i));
   private characterSet: string[];
+  private http = createProxiedAxios();
 
   constructor(characterSet = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i))) {
     this.characterSet = [...characterSet];
@@ -108,7 +109,7 @@ export class VidCloud {
     "https://raw.githubusercontent.com/yogesh-hacker/MegacloudKeys/refs/heads/main/keys.json";
 
   async fetchKey(url: string) {
-    const response = await axios.get(url);
+    const response = await this.http.get(url);
     if (response.data && response.data.rabbit) {
       return response.data.rabbit;
     }
@@ -136,7 +137,7 @@ export class VidCloud {
     const basePathname = fullPathname.substring(0, lastSlashIndex);
     const sourcesBaseUrl = `${videoUrl.origin}${basePathname}/getSources`;
 
-    const { data: initialResponse } = await axios.get(sourcesBaseUrl, {
+    const { data: initialResponse } = await this.http.get(sourcesBaseUrl, {
       params: { id: sourceId, _k: clientKey },
       headers: { "X-Requested-With": "XMLHttpRequest", Referer: videoUrl.href },
     });

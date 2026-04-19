@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { SERVER_ORIGIN, STREAM_PROXY_BASE } from "./config";
 import { isTooLarge } from "./helper";
+import { withUpstreamProxy } from "./lib/upstreamProxy";
 import { Logger } from "./logger";
 
 // for proxy safety
@@ -140,12 +141,15 @@ async function handleFetchProxy(request: Request, url: string, headers?: string)
     if (waitMs > 0) await sleep(waitMs);
     anilistNextAllowedAt = Date.now() + ANILIST_MIN_INTERVAL_MS;
 
-    const res = await fetch(url, {
-      method,
-      headers: customHeaders,
-      body: method === "GET" || method === "HEAD" ? undefined : requestBody,
-      signal: undefined, // shared AniList requests should not abort for all listeners
-    });
+    const res = await fetch(
+      url,
+      withUpstreamProxy({
+        method,
+        headers: customHeaders,
+        body: method === "GET" || method === "HEAD" ? undefined : requestBody,
+        signal: undefined, // shared AniList requests should not abort for all listeners
+      }),
+    );
 
     if (isTooLarge(res.headers.get("content-length"), MAX_FETCH_SIZE)) {
       throw new Error("Payload too large");
@@ -201,12 +205,15 @@ async function handleFetchProxy(request: Request, url: string, headers?: string)
       return toCachedResponse(data, "MISS");
     }
 
-    const res = await fetch(url, {
-      method,
-      headers: customHeaders,
-      body: method === "GET" || method === "HEAD" ? undefined : requestBody,
-      signal: request.signal, // Abort if client disconnects
-    });
+    const res = await fetch(
+      url,
+      withUpstreamProxy({
+        method,
+        headers: customHeaders,
+        body: method === "GET" || method === "HEAD" ? undefined : requestBody,
+        signal: request.signal, // Abort if client disconnects
+      }),
+    );
 
     // Size limit check
     if (isTooLarge(res.headers.get("content-length"), MAX_FETCH_SIZE)) {
@@ -271,10 +278,13 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
       enrichProxyHeaders(corsHeaders);
 
       try {
-        const res = await fetch(url, {
-          headers: corsHeaders,
-          signal: request.signal, // Abort if client disconnects
-        });
+        const res = await fetch(
+          url,
+          withUpstreamProxy({
+            headers: corsHeaders,
+            signal: request.signal, // Abort if client disconnects
+          }),
+        );
 
         if (!res.ok) {
           console.log("Fetch failed with status:", res.status, "Url:", url);
@@ -361,10 +371,13 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
       enrichProxyHeaders(corsHeaders);
 
       try {
-        const res = await fetch(url, {
-          headers: corsHeaders,
-          signal: request.signal, // Abort if client disconnects
-        });
+        const res = await fetch(
+          url,
+          withUpstreamProxy({
+            headers: corsHeaders,
+            signal: request.signal, // Abort if client disconnects
+          }),
+        );
 
         if (!res.ok) {
           console.error("TS segment Fetch failed:", res.status, url);
@@ -422,10 +435,13 @@ export const proxyRoutes = new Elysia({ prefix: "/proxy" })
       enrichProxyHeaders(corsHeaders);
 
       try {
-        const res = await fetch(url, {
-          headers: corsHeaders,
-          signal: request.signal, // Abort if client disconnects
-        });
+        const res = await fetch(
+          url,
+          withUpstreamProxy({
+            headers: corsHeaders,
+            signal: request.signal, // Abort if client disconnects
+          }),
+        );
 
         if (!res.ok) {
           console.error("[MP4] Fetch failed:", res.status, url);

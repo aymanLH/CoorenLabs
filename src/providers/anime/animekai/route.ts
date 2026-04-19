@@ -1,6 +1,22 @@
 import { Elysia } from "elysia";
 import { AnimeKai } from "./animekai";
 import { buildHomepage } from "./homepage";
+import { STREAM_PROXY_BASE } from "../../../core/config";
+
+// Short-lived in-memory store for pre-fetched & rewritten m3u8 playlists.
+// Keys are random tokens; entries expire after 5 minutes.
+const m3u8Cache = new Map<string, { content: string; expiresAt: number }>();
+const M3U8_TTL_MS = 5 * 60 * 1000;
+
+function storeM3u8(content: string): string {
+  const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  m3u8Cache.set(token, { content, expiresAt: Date.now() + M3U8_TTL_MS });
+  // Purge expired entries opportunistically
+  for (const [k, v] of m3u8Cache.entries()) {
+    if (v.expiresAt < Date.now()) m3u8Cache.delete(k);
+  }
+  return token;
+}
 
 export const animekaiRoutes = new Elysia({ prefix: "/animekai" })
 
@@ -114,6 +130,17 @@ export const animekaiRoutes = new Elysia({ prefix: "/animekai" })
     return res;
   })
 
+// ─── Cached pre-fetched M3U8 playlist (served to client after server-side rewrite) ──
+  .get("/cached-m3u8", ({ query: qs, set }) => {
+    const token = qs?.token as string | undefined;
+    if (!token) { set.status = 400; return "Missing token"; }
+    const entry = m3u8Cache.get(token);
+    if (!entry || entry.expiresAt < Date.now()) { set.status = 404; return "Expired or not found"; }
+    return new Response(entry.content, {
+      headers: { "Content-Type": "application/vnd.apple.mpegurl", "Access-Control-Allow-Origin": "*" },
+    });
+  })
+
 // ─── Watch / Stream Sources ────────────────────────────────────────────────
   .get("/watch/:episodeId", async ({ params: { episodeId }, query: qs, set }) => {
     if (!episodeId) {
@@ -124,8 +151,59 @@ export const animekaiRoutes = new Elysia({ prefix: "/animekai" })
     const type = qs?.type as "softsub" | "dub" | "hardsub" | undefined;
     const animeSlug = episodeId.split("$")[0] ?? episodeId;
     
-    // Return the response directly as it's already structured perfectly
-    return await AnimeKai.streams(animeSlug, episodeId, type);
+    const streamsData = await AnimeKai.streams(animeSlug, episodeId, type);
+
+    // Pre-fetch each signed HLS playlist server-side immediately after extraction.
+    // MegaUp CDN signs URLs to the VPS IP — if we let the client proxy them later,
+    // the signature may have expired or be rejected. Fetching here, rewriting segment
+    // URLs through our proxy, and returning a stable token URL avoids all 403s.
+    if (Array.isArray(streamsData?.results)) {
+      await Promise.all(
+        streamsData.results.map(async (result: any) => {
+          if (!Array.isArray(result.sources)) return;
+          await Promise.all(
+            result.sources.map(async (source: any) => {
+              const url: string = source?.url ?? source?.file ?? "";
+              if (!url.includes(".m3u8")) return;
+              try {
+                const origin = new URL(url).origin;
+                const cdnHeaders: Record<string, string> = {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                  "Referer": origin + "/",
+                  "Origin": origin,
+                  "Accept": "*/*",
+                };
+                const res = await fetch(url, { headers: cdnHeaders });
+                if (!res.ok) return; // leave source as-is, client will fall through to next server
+                const m3u8Text = await res.text();
+                const encodedHeaders = encodeURIComponent(JSON.stringify(cdnHeaders));
+                const rewritten = m3u8Text
+                  .split("\n")
+                  .map((line: string) => {
+                    const tl = line.trim();
+                    if (!tl || tl.startsWith("#")) return line;
+                    const absUrl = new URL(tl, url).href;
+                    const enc = encodeURIComponent(absUrl);
+                    const isPlaylist = /\.m3u|\.txt|playlist/i.test(absUrl);
+                    return isPlaylist
+                      ? `${STREAM_PROXY_BASE}/m3u8-proxy?url=${enc}&headers=${encodedHeaders}`
+                      : `${STREAM_PROXY_BASE}/ts-segment?url=${enc}&headers=${encodedHeaders}`;
+                  })
+                  .join("\n");
+                const token = storeM3u8(rewritten);
+                const cachedUrl = `${STREAM_PROXY_BASE.replace("/proxy", "")}/anime/animekai/cached-m3u8?token=${token}`;
+                source.url = cachedUrl;
+                source.file = cachedUrl;
+              } catch {
+                // leave source unchanged if anything fails
+              }
+            }),
+          );
+        }),
+      );
+    }
+
+    return streamsData;
   })
 
   // ─── Episode Servers ───────────────────────────────────────────────────────

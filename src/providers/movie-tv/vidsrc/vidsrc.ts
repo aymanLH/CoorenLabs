@@ -1,138 +1,166 @@
 import * as cheerio from "cheerio";
 import { createProxiedAxios } from "../../../core/lib/upstreamProxy";
-import { VideoStream, getClientKey } from "../himovies/extractor";
-import { vidsrc as baseUrl } from "../../origins";
+import { VideoStream } from "../himovies/extractor";
 import { Logger } from "../../../core/logger";
-import type { VidsrcServer, VidsrcResult } from "./types";
 
-// vidsrc.rip uses the same MegaCloud/VidStr embed infrastructure as himovies.
-// Flow: embed page → find server hash → getSources?id=HASH&_k=CLIENT_KEY → decrypt → M3U8
-const extractor = new VideoStream();
 const http = createProxiedAxios();
+const extractor = new VideoStream();
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const BASE = "https://vidsrc.rip";
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-function buildEmbedUrl(type: "movie" | "tv", tmdbId: number, season?: number, episode?: number) {
-  if (type === "movie") return `${baseUrl}/embed/movie/${tmdbId}`;
-  return `${baseUrl}/embed/tv/${tmdbId}/${season}/${episode}`;
+// ─── VRF encoding (vidsrc.rip uses a simple char-shift cipher) ────────────────
+
+function generateVRF(input: string): string {
+  const table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  let encoded = "";
+  for (let i = 0; i < input.length; i++) {
+    const charCode = input.charCodeAt(i);
+    encoded += table[charCode % table.length];
+  }
+  return encodeURIComponent(btoa(encoded));
 }
 
-// Parse server list from the embed page HTML
-function parseServers(html: string): VidsrcServer[] {
-  const $ = cheerio.load(html);
-  const servers: VidsrcServer[] = [];
+// ─── Step 1: get server list ──────────────────────────────────────────────────
 
-  // vidsrc renders server list as <div class="server"> or <li data-hash="...">
-  $("[data-hash]").each((_, el) => {
-    const hash = $(el).attr("data-hash") || $(el).attr("data-id") || "";
-    const name = $(el).text().trim() || $(el).attr("data-name") || "server";
-    const id = $(el).attr("data-id") || hash;
-    if (hash) servers.push({ id, name: name.toLowerCase(), hash });
+async function getServers(
+  type: "movie" | "tv",
+  tmdbId: number,
+  season?: number,
+  episode?: number,
+): Promise<{ hash: string; name: string }[]> {
+  // vidsrc.rip API endpoint
+  let url: string;
+  if (type === "movie") {
+    url = `${BASE}/api/9/movie?id=${tmdbId}`;
+  } else {
+    url = `${BASE}/api/9/tv?id=${tmdbId}&season=${season}&episode=${episode}`;
+  }
+
+  const res = await http.get(url, {
+    headers: { Referer: `${BASE}/`, "User-Agent": UA },
   });
 
-  // Fallback: look for source links embedded in script tags
-  if (servers.length === 0) {
-    const scriptContent = $("script")
-      .map((_, el) => $(el).html() || "")
-      .get()
-      .join("\n");
-    const hashMatches = scriptContent.matchAll(/"hash"\s*:\s*"([^"]+)"/g);
-    for (const match of hashMatches) {
-      servers.push({ id: match[1], name: "vidstr", hash: match[1] });
-    }
+  const data = res.data;
+
+  // Response shape: { status, result: [{ hash, title, ... }] }
+  const results = Array.isArray(data?.result)
+    ? data.result
+    : Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data)
+        ? data
+        : [];
+
+  if (!results.length) {
+    Logger.warn("[vidsrc] No servers from API for tmdbId:", tmdbId);
   }
 
-  return servers;
+  return results.map((r: any) => ({
+    hash: r.hash ?? r.id ?? "",
+    name: r.title ?? r.name ?? "server",
+  }));
 }
 
-// Resolve a server hash → actual embed URL (megacloud/vidstr)
-async function resolveServerUrl(hash: string, referer: string): Promise<string | null> {
+// ─── Step 2: resolve hash → embed URL via /rcp/ ───────────────────────────────
+
+async function resolveHash(hash: string): Promise<string | null> {
   try {
-    const res = await http.get(`${baseUrl}/rcp/${hash}`, {
-      headers: { Referer: referer, "X-Requested-With": "XMLHttpRequest" },
-      maxRedirects: 0,
-      validateStatus: (s) => s < 400,
+    const vrf = generateVRF(hash);
+    const res = await http.get(`${BASE}/rcp/${hash}`, {
+      headers: { Referer: `${BASE}/`, "User-Agent": UA },
+      params: { vrf },
+      maxRedirects: 5,
+      validateStatus: (s) => s < 500,
     });
 
-    // May return a redirect Location or a JSON with url field
+    // Can be a redirect, JSON with url/link, or HTML with iframe
     if (res.headers?.location) return res.headers.location;
-    if (res.data?.url) return res.data.url;
-    if (res.data?.link) return res.data.link;
-
-    // Some versions embed the URL in HTML
-    const $ = cheerio.load(res.data || "");
-    const iframeSrc = $("iframe").attr("src");
-    if (iframeSrc) return iframeSrc;
-
-    return null;
+    if (typeof res.data === "object") {
+      if (res.data?.url) return res.data.url;
+      if (res.data?.link) return res.data.link;
+      if (res.data?.src) return res.data.src;
+    }
+    if (typeof res.data === "string") {
+      const $ = cheerio.load(res.data);
+      const src = $("iframe").attr("src") || $("video source").attr("src");
+      if (src) return src;
+      // Look for a JS variable with the URL
+      const match = res.data.match(/(?:url|src|link)\s*[:=]\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i);
+      if (match) return match[1];
+    }
   } catch (err: any) {
-    Logger.error("[vidsrc] resolveServerUrl error:", err.message);
-    return null;
+    Logger.warn("[vidsrc] resolveHash error for", hash, ":", err.message);
   }
+  return null;
 }
 
-// ─── Main scraper ─────────────────────────────────────────────────────────────
+// ─── Step 3: extract M3U8 from embed URL (MegaCloud/VidStr) ──────────────────
+
+async function extractFromEmbedUrl(embedUrl: string): Promise<any | null> {
+  try {
+    const videoUrl = new URL(embedUrl);
+    const result = await extractor.extract(videoUrl, `${BASE}/`);
+    if (result?.sources?.length > 0) return result;
+  } catch (err: any) {
+    Logger.warn("[vidsrc] MegaCloud extract failed for", embedUrl, ":", err.message);
+  }
+  return null;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function fetchSources(
   type: "movie" | "tv",
   tmdbId: number,
   season?: number,
   episode?: number,
-): Promise<VidsrcResult | null> {
-  const embedUrl = buildEmbedUrl(type, tmdbId, season, episode);
-
-  // 1. Load embed page and find servers
-  let html: string;
+) {
+  let servers: { hash: string; name: string }[];
   try {
-    const res = await http.get(embedUrl, {
-      headers: {
-        Referer: `${baseUrl}/`,
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      },
-    });
-    html = res.data;
+    servers = await getServers(type, tmdbId, season, episode);
   } catch (err: any) {
-    Logger.error("[vidsrc] Failed to load embed page:", err.message);
+    Logger.error("[vidsrc] Failed to get server list:", err.message);
     return null;
   }
 
-  const servers = parseServers(html);
-  if (servers.length === 0) {
-    Logger.error("[vidsrc] No servers found on embed page for:", embedUrl);
+  if (!servers.length) {
+    Logger.error("[vidsrc] No servers available for tmdbId:", tmdbId);
     return null;
   }
 
-  Logger.info(`[vidsrc] Found ${servers.length} server(s):`, servers.map((s) => s.name).join(", "));
+  Logger.info(`[vidsrc] ${servers.length} server(s) for tmdb:${tmdbId}`);
 
-  // 2. Try each server until one works
   for (const server of servers) {
-    try {
-      Logger.info(`[vidsrc] Trying server: ${server.name} (${server.hash})`);
+    if (!server.hash) continue;
+    Logger.info(`[vidsrc] Trying: ${server.name} (${server.hash})`);
 
-      // Resolve hash → embed URL (megacloud/vidstr URL)
-      const serverEmbedUrl = await resolveServerUrl(server.hash, embedUrl);
-      if (!serverEmbedUrl) {
-        Logger.warn(`[vidsrc] Could not resolve URL for server: ${server.name}`);
-        continue;
-      }
+    const embedUrl = await resolveHash(server.hash);
+    if (!embedUrl) {
+      Logger.warn("[vidsrc] Could not resolve hash:", server.hash);
+      continue;
+    }
 
-      Logger.info(`[vidsrc] Resolved embed URL: ${serverEmbedUrl}`);
+    Logger.info("[vidsrc] Embed URL:", embedUrl);
 
-      // 3. Use the existing MegaCloud extractor (same as himovies)
-      const videoUrl = new URL(serverEmbedUrl);
-      const result = await extractor.extract(videoUrl, `${baseUrl}/`);
+    // If it's already an m3u8, return it directly
+    if (embedUrl.includes(".m3u8")) {
+      return {
+        sources: [{ url: embedUrl, isM3u8: true, type: "hls" }],
+        subtitles: [],
+      };
+    }
 
-      if (result?.sources?.length > 0) {
-        Logger.info(`[vidsrc] Got ${result.sources.length} source(s) from ${server.name}`);
-        return result as VidsrcResult;
-      }
-    } catch (err: any) {
-      Logger.warn(`[vidsrc] Server ${server.name} failed: ${err.message}`);
+    // Otherwise try MegaCloud extraction
+    const result = await extractFromEmbedUrl(embedUrl);
+    if (result) {
+      Logger.info(`[vidsrc] Got ${result.sources.length} source(s) from ${server.name}`);
+      return result;
     }
   }
 
-  Logger.error("[vidsrc] All servers failed for:", embedUrl);
+  Logger.error("[vidsrc] All servers failed for tmdbId:", tmdbId);
   return null;
 }
 

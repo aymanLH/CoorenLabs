@@ -3,12 +3,14 @@ import { primesrcRoutes } from "./primesrc/route";
 import { yFlixRoutes } from "./yflix/route";
 import { himoviesRoutes } from "./himovies/route";
 import { flixhqRoutes } from "./flixhq/route";
+import { vidsrcRoutes } from "./vidsrc/route";
 
 export const movieTvRoutes = new Elysia({ prefix: "/movie-tv" })
   .use(primesrcRoutes)
   .use(yFlixRoutes)
   .use(himoviesRoutes)
   .use(flixhqRoutes)
+  .use(vidsrcRoutes)
 
   // ─── Overview Endpoint ────────────────────────────────────────────────────────
   .get(
@@ -16,7 +18,7 @@ export const movieTvRoutes = new Elysia({ prefix: "/movie-tv" })
     () => ({
       service: "movie-tv",
       description: "Unified Movie & TV API — provider-isolated route architecture",
-      providers: ["primesrc", "yflix", "himovies", "flixhq"],
+      providers: ["primesrc", "yflix", "himovies", "flixhq", "vidsrc"],
       endpoints: {
         primesrc: [
           "GET /movie-tv/primesrc/movie/:tmdbid   → Get movie sources",
@@ -49,10 +51,12 @@ export const movieTvRoutes = new Elysia({ prefix: "/movie-tv" })
           "GET /movie-tv/flixhq/media/upcoming      → Upcoming content",
           "GET /movie-tv/flixhq/media/filter        → Advanced filter search",
           "GET /movie-tv/flixhq/media/:id           → Media info & episodes",
-          "GET /movie-tv/flixhq/genres/:genre       → Media by genre",
-          "GET /movie-tv/flixhq/countries/:country → Media by country",
           "GET /movie-tv/flixhq/media/:id/servers   → Available servers for episode",
           "GET /movie-tv/flixhq/sources/:episodeId  → Stream sources and subtitles",
+        ],
+        vidsrc: [
+          "GET /movie-tv/vidsrc/movie/:tmdbid        → Ad-free movie M3U8 sources",
+          "GET /movie-tv/vidsrc/tv/:tmdbid/:season/:episode → Ad-free TV episode M3U8 sources",
         ],
       },
     }),
